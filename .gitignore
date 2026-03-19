@@ -60,4 +60,4 @@ next-env.d.ts
 /logs
 
 # docs
-/docs
+# Keep docs/ available for checked-in repository workflow docs.

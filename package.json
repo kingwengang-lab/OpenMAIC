@@ -11,6 +11,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "feature:new": "./tools/start-feature.sh",
+    "sync:upstream": "./tools/sync-upstream.sh",
     "lint": "eslint",
     "check": "prettier . --check",
     "format": "prettier . --write"
