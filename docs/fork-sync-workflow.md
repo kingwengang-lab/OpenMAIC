@@ -36,10 +36,14 @@ What the sync script does:
 
 ```bash
 git fetch upstream
+git fetch origin
 git checkout main
-git merge --ff-only upstream/main
+git merge --ff-only origin/main
+git merge --no-edit upstream/main
 git push origin main
 ```
+
+`main` can contain fork-specific workflow commits, so upstream sync is handled as a normal merge after local `main` is aligned to `origin/main`.
 
 ## Feature Development
 
@@ -73,7 +77,7 @@ git merge main
 The feature helper does four things in order:
 
 1. Verifies you are in a clean working tree
-2. Syncs `main` from `upstream/main`
+2. Syncs local `main` from `origin/main` and then merges `upstream/main`
 3. Creates `feature/<topic>`
 4. Optionally pushes the branch to `origin`
 
