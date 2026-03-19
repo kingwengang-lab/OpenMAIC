@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { useStageStore } from '@/lib/store/stage';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { getCurrentModelConfig, getSanitizedClientOverride } from '@/lib/utils/model-config';
 import { useSettingsStore } from '@/lib/store/settings';
 import { db } from '@/lib/utils/database';
 import type { SceneOutline, PdfImage, ImageMapping } from '@/lib/types/generation';
@@ -117,8 +117,12 @@ function splitLongSpeechActions(actions: Action[], providerId: TTSProviderId): A
 function getApiHeaders(): HeadersInit {
   const config = getCurrentModelConfig();
   const settings = useSettingsStore.getState();
-  const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
-  const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
+  const imageOverrides = getSanitizedClientOverride(
+    settings.imageProvidersConfig?.[settings.imageProviderId],
+  );
+  const videoOverrides = getSanitizedClientOverride(
+    settings.videoProvidersConfig?.[settings.videoProviderId],
+  );
 
   return {
     'Content-Type': 'application/json',
@@ -130,13 +134,13 @@ function getApiHeaders(): HeadersInit {
     // Image generation provider
     'x-image-provider': settings.imageProviderId || '',
     'x-image-model': settings.imageModelId || '',
-    'x-image-api-key': imageProviderConfig?.apiKey || '',
-    'x-image-base-url': imageProviderConfig?.baseUrl || '',
+    'x-image-api-key': imageOverrides.apiKey,
+    'x-image-base-url': imageOverrides.baseUrl,
     // Video generation provider
     'x-video-provider': settings.videoProviderId || '',
     'x-video-model': settings.videoModelId || '',
-    'x-video-api-key': videoProviderConfig?.apiKey || '',
-    'x-video-base-url': videoProviderConfig?.baseUrl || '',
+    'x-video-api-key': videoOverrides.apiKey,
+    'x-video-base-url': videoOverrides.baseUrl,
     // Media generation toggles
     'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
     'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
@@ -213,7 +217,9 @@ export async function generateAndStoreTTS(
   const settings = useSettingsStore.getState();
   if (settings.ttsProviderId === 'browser-native-tts') return;
 
-  const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
+  const ttsOverrides = getSanitizedClientOverride(
+    settings.ttsProvidersConfig?.[settings.ttsProviderId],
+  );
   const response = await fetch('/api/generate/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -223,8 +229,8 @@ export async function generateAndStoreTTS(
       ttsProviderId: settings.ttsProviderId,
       ttsVoice: settings.ttsVoice,
       ttsSpeed: settings.ttsSpeed,
-      ttsApiKey: ttsProviderConfig?.apiKey || undefined,
-      ttsBaseUrl: ttsProviderConfig?.baseUrl || undefined,
+      ttsApiKey: ttsOverrides.apiKey || undefined,
+      ttsBaseUrl: ttsOverrides.baseUrl || undefined,
     }),
     signal,
   });

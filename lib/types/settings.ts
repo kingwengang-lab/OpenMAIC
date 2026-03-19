@@ -11,6 +11,13 @@ export type SettingsSection =
   | 'video'
   | 'web-search';
 
+export interface ProviderSecurityCapabilities {
+  secretsMode: 'server-only' | 'client-override';
+  allowClientBaseUrl: boolean;
+  allowCustomProviders: boolean;
+  allowProviderEditing: boolean;
+}
+
 /**
  * Unified provider configuration stored in JSON format
  * Stores all provider-specific settings and metadata in one object

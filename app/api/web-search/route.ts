@@ -9,6 +9,7 @@ import { searchWithTavily, formatSearchResultsAsContext } from '@/lib/web-search
 import { resolveWebSearchApiKey } from '@/lib/server/provider-config';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 
 const log = createLogger('WebSearch');
 
@@ -19,6 +20,13 @@ export async function POST(req: Request) {
       query?: string;
       apiKey?: string;
     };
+
+    const overrideError = rejectClientSecretOverride({
+      apiKey: clientApiKey,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
 
     if (!query || !query.trim()) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'query is required');

@@ -9,6 +9,7 @@ import type { NextRequest } from 'next/server';
 import { getModel, parseModelString, type ModelWithInfo } from '@/lib/ai/providers';
 import { resolveApiKey, resolveBaseUrl, resolveProxy } from '@/lib/server/provider-config';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { hasBlockedClientSecretOverride } from '@/lib/server/provider-security';
 
 export interface ResolvedModel extends ModelWithInfo {
   /** Original model string (e.g. "openai/gpt-4o-mini") */
@@ -29,6 +30,14 @@ export function resolveModel(params: {
 }): ResolvedModel {
   const modelString = params.modelString || process.env.DEFAULT_MODEL || 'gpt-4o-mini';
   const { providerId, modelId } = parseModelString(modelString);
+
+  const hasBlockedOverride = hasBlockedClientSecretOverride({
+    apiKey: params.apiKey,
+    baseUrl: params.baseUrl,
+  });
+  if (hasBlockedOverride) {
+    throw new Error('Client API key and Base URL overrides are disabled in deployed environments');
+  }
 
   const clientBaseUrl = params.baseUrl || undefined;
   if (clientBaseUrl && process.env.NODE_ENV === 'production') {

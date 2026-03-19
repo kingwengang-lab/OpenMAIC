@@ -21,6 +21,7 @@ import type { ThinkingConfig } from '@/lib/types/provider';
 import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 const log = createLogger('Chat API');
 
 // Allow streaming responses up to 60 seconds
@@ -66,6 +67,13 @@ export async function POST(req: NextRequest) {
     const { providerId, modelId } = parseModelString(modelString);
 
     const clientBaseUrl = body.baseUrl || undefined;
+    const overrideError = rejectClientSecretOverride({
+      apiKey: body.apiKey,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {

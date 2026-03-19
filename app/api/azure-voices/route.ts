@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 const log = createLogger('Azure Voices');
 
 export const maxDuration = 30;
@@ -13,6 +14,14 @@ export const maxDuration = 30;
 export async function POST(req: NextRequest) {
   try {
     const { apiKey, baseUrl } = await req.json();
+
+    const overrideError = rejectClientSecretOverride({
+      apiKey,
+      baseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
 
     if (!apiKey) {
       return apiError('MISSING_API_KEY', 400, 'API Key is required');

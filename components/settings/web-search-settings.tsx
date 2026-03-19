@@ -19,9 +19,13 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
 
   const webSearchProvidersConfig = useSettingsStore((state) => state.webSearchProvidersConfig);
   const setWebSearchProviderConfig = useSettingsStore((state) => state.setWebSearchProviderConfig);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   const provider = WEB_SEARCH_PROVIDERS[selectedProviderId];
   const isServerConfigured = !!webSearchProvidersConfig[selectedProviderId]?.isServerConfigured;
+  const readOnly = !canEditProviderSettings;
 
   // Reset showApiKey when provider changes (derived state pattern)
   const [prevSelectedProviderId, setPrevSelectedProviderId] = useState(selectedProviderId);
@@ -62,15 +66,18 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
                       apiKey: e.target.value,
                     })
                   }
+                  disabled={readOnly}
                   className="font-mono text-sm pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{t('settings.webSearchApiKeyHint')}</p>
             </div>
@@ -90,6 +97,7 @@ export function WebSearchSettings({ selectedProviderId }: WebSearchSettingsProps
                     baseUrl: e.target.value,
                   })
                 }
+                disabled={readOnly}
                 className="text-sm"
               />
             </div>

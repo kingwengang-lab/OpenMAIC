@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ProviderId } from '@/lib/ai/providers';
-import type { ProvidersConfig } from '@/lib/types/settings';
+import type { ProviderSecurityCapabilities, ProvidersConfig } from '@/lib/types/settings';
 import { PROVIDERS } from '@/lib/ai/providers';
 import type { TTSProviderId, ASRProviderId } from '@/lib/audio/types';
 import { ASR_PROVIDERS, DEFAULT_TTS_VOICES } from '@/lib/audio/constants';
@@ -16,6 +16,7 @@ import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { createLogger } from '@/lib/logger';
+import { getDefaultProviderSecurityCapabilities } from '@/lib/provider-security';
 
 const log = createLogger('Settings');
 
@@ -131,6 +132,9 @@ export interface SettingsState {
   // Auto-config lifecycle flag (persisted)
   autoConfigApplied: boolean;
 
+  // Provider security capabilities (fetched from server)
+  providerCapabilities: ProviderSecurityCapabilities;
+
   // Playback controls
   ttsMuted: boolean;
   ttsVolume: number; // 0-1, actual volume level
@@ -230,6 +234,59 @@ export interface SettingsState {
 
   // Server provider actions
   fetchServerProviders: () => Promise<void>;
+}
+
+function stripSecretsFromRecord<T extends { apiKey: string; baseUrl: string }>(
+  config: Record<string, T>,
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(config).map(([id, entry]) => [
+      id,
+      {
+        ...entry,
+        apiKey: '',
+        baseUrl: '',
+      },
+    ]),
+  ) as Record<string, T>;
+}
+
+function stripSecretsFromPersistedState(state: Partial<SettingsState>): Partial<SettingsState> {
+  if (state.providersConfig) {
+    state.providersConfig = stripSecretsFromRecord(state.providersConfig) as ProvidersConfig;
+  }
+  if (state.ttsProvidersConfig) {
+    state.ttsProvidersConfig = stripSecretsFromRecord(
+      state.ttsProvidersConfig,
+    ) as SettingsState['ttsProvidersConfig'];
+  }
+  if (state.asrProvidersConfig) {
+    state.asrProvidersConfig = stripSecretsFromRecord(
+      state.asrProvidersConfig,
+    ) as SettingsState['asrProvidersConfig'];
+  }
+  if (state.pdfProvidersConfig) {
+    state.pdfProvidersConfig = stripSecretsFromRecord(
+      state.pdfProvidersConfig,
+    ) as SettingsState['pdfProvidersConfig'];
+  }
+  if (state.imageProvidersConfig) {
+    state.imageProvidersConfig = stripSecretsFromRecord(
+      state.imageProvidersConfig,
+    ) as SettingsState['imageProvidersConfig'];
+  }
+  if (state.videoProvidersConfig) {
+    state.videoProvidersConfig = stripSecretsFromRecord(
+      state.videoProvidersConfig,
+    ) as SettingsState['videoProvidersConfig'];
+  }
+  if (state.webSearchProvidersConfig) {
+    state.webSearchProvidersConfig = stripSecretsFromRecord(
+      state.webSearchProvidersConfig,
+    ) as SettingsState['webSearchProvidersConfig'];
+  }
+
+  return state;
 }
 
 // Initialize default providers config
@@ -472,6 +529,7 @@ export const useSettingsStore = create<SettingsState>()(
         asrEnabled: true,
 
         autoConfigApplied: false,
+        providerCapabilities: getDefaultProviderSecurityCapabilities(),
 
         // Web Search settings (use defaults)
         ...defaultWebSearchConfig,
@@ -640,6 +698,7 @@ export const useSettingsStore = create<SettingsState>()(
               image: Record<string, { baseUrl?: string }>;
               video: Record<string, { baseUrl?: string }>;
               webSearch: Record<string, { baseUrl?: string }>;
+              capabilities?: ProviderSecurityCapabilities;
             };
 
             set((state) => {
@@ -909,6 +968,8 @@ export const useSettingsStore = create<SettingsState>()(
                 imageProvidersConfig: newImageConfig,
                 videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
+                providerCapabilities:
+                  data.capabilities || state.providerCapabilities || getDefaultProviderSecurityCapabilities(),
                 autoConfigApplied: true,
                 ...(autoPdfProvider && { pdfProviderId: autoPdfProvider }),
                 ...(autoTtsProvider && {
@@ -943,7 +1004,7 @@ export const useSettingsStore = create<SettingsState>()(
     },
     {
       name: 'settings-storage',
-      version: 2,
+      version: 3,
       // Migrate persisted state
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Partial<SettingsState>;
@@ -1032,13 +1093,12 @@ export const useSettingsStore = create<SettingsState>()(
         // Migrate Web Search: old flat fields → new provider-based config
         if (!state.webSearchProvidersConfig) {
           const stateRecord = state as Record<string, unknown>;
-          const oldApiKey = (stateRecord.webSearchApiKey as string) || '';
           const oldIsServerConfigured =
             (stateRecord.webSearchIsServerConfigured as boolean) || false;
           state.webSearchProviderId = 'tavily' as WebSearchProviderId;
           state.webSearchProvidersConfig = {
             tavily: {
-              apiKey: oldApiKey,
+              apiKey: '',
               baseUrl: '',
               enabled: true,
               isServerConfigured: oldIsServerConfigured,
@@ -1048,14 +1108,24 @@ export const useSettingsStore = create<SettingsState>()(
           delete stateRecord.webSearchIsServerConfigured;
         }
 
+        if (!state.providerCapabilities) {
+          state.providerCapabilities = getDefaultProviderSecurityCapabilities();
+        }
+
+        stripSecretsFromPersistedState(state);
+
         return state;
       },
+      partialize: (state) =>
+        stripSecretsFromPersistedState({
+          ...state,
+        }),
       // Custom merge: always sync built-in providers on every rehydrate,
       // so newly added providers/models appear without clearing cache.
       merge: (persistedState, currentState) => {
         const merged = { ...currentState, ...(persistedState as object) };
         ensureBuiltInProviders(merged as Partial<SettingsState>);
-        return merged as SettingsState;
+        return stripSecretsFromPersistedState(merged as Partial<SettingsState>) as SettingsState;
       },
     },
   ),

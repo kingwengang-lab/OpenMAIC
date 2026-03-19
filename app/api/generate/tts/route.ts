@@ -14,6 +14,7 @@ import type { TTSProviderId } from '@/lib/audio/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 
 const log = createLogger('TTS API');
 
@@ -47,6 +48,13 @@ export async function POST(req: NextRequest) {
     }
 
     const clientBaseUrl = ttsBaseUrl || undefined;
+    const overrideError = rejectClientSecretOverride({
+      apiKey: ttsApiKey,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {

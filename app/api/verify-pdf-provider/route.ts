@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolvePDFApiKey, resolvePDFBaseUrl } from '@/lib/server/provider-config';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 
 const log = createLogger('Verify PDF Provider');
 
@@ -15,6 +16,13 @@ export async function POST(req: NextRequest) {
     }
 
     const clientBaseUrl = (baseUrl as string | undefined) || undefined;
+    const overrideError = rejectClientSecretOverride({
+      apiKey: apiKey as string | undefined,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {

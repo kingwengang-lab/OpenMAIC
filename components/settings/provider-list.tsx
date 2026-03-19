@@ -15,6 +15,7 @@ interface ProviderListProps {
   selectedProviderId: ProviderId;
   onSelect: (providerId: ProviderId) => void;
   onAddProvider: () => void;
+  allowAddProvider?: boolean;
   width?: number;
 }
 
@@ -23,6 +24,7 @@ export function ProviderList({
   selectedProviderId,
   onSelect,
   onAddProvider,
+  allowAddProvider = true,
   width,
 }: ProviderListProps) {
   const { t } = useI18n();
@@ -73,13 +75,14 @@ export function ProviderList({
         ))}
       </div>
 
-      {/* Add Provider Button */}
-      <div className="p-3 border-t">
-        <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={onAddProvider}>
-          <Plus className="h-3.5 w-3.5" />
-          {t('settings.addProviderButton')}
-        </Button>
-      </div>
+      {allowAddProvider && (
+        <div className="p-3 border-t">
+          <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={onAddProvider}>
+            <Plus className="h-3.5 w-3.5" />
+            {t('settings.addProviderButton')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
