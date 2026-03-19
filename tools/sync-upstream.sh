@@ -43,12 +43,19 @@ echo "Current branch: ${current_branch}"
 echo "Dry run: ${DRY_RUN}"
 
 run git fetch upstream
+run git fetch origin
 
 if [[ "${current_branch}" != "main" ]]; then
   run git checkout main
 fi
 
-run git merge --ff-only upstream/main
+# Always align local main to the latest fork state first. This keeps GitHub UI
+# merges on origin/main from being skipped or overwritten by local syncs.
+run git merge --ff-only origin/main
+
+# main now intentionally carries fork-specific workflow commits, so upstream
+# syncs must use a regular merge instead of assuming fast-forward-only.
+run git merge --no-edit upstream/main
 run git push origin main
 
 echo
