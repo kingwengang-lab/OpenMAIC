@@ -369,6 +369,8 @@ Optional config in `~/.openclaw/openclaw.json`:
 
 We welcome contributions from the community! Whether it's bug reports, feature ideas, or pull requests — every bit helps.
 
+If you are maintaining a long-lived fork, see [Fork Sync Workflow](docs/fork-sync-workflow.md) for the recommended `origin` / `upstream` strategy and daily sync commands.
+
 ### Project Structure
 
 ```

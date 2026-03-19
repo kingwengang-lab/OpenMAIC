@@ -369,6 +369,8 @@ cp -R /path/to/OpenMAIC/skills/openmaic ~/.openclaw/skills/openmaic
 
 我们欢迎社区的贡献！无论是 Bug 报告、功能建议还是 Pull Request，都非常感谢。
 
+如果你在长期维护自己的 fork，建议先阅读 [Fork Sync Workflow](docs/fork-sync-workflow.md)。里面固定了 `origin` / `upstream` 的职责、`main` 的同步规则，以及日常同步命令。
+
 ### 项目结构
 
 ```
