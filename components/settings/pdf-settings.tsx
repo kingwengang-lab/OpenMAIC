@@ -11,6 +11,7 @@ import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import { CheckCircle2, Eye, EyeOff, Loader2, Zap, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 /**
  * Get display label for feature
@@ -39,12 +40,16 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
 
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
   const setPDFProviderConfig = useSettingsStore((state) => state.setPDFProviderConfig);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   const pdfProvider = PDF_PROVIDERS[selectedProviderId];
   const isServerConfigured = !!pdfProvidersConfig[selectedProviderId]?.isServerConfigured;
   const providerConfig = pdfProvidersConfig[selectedProviderId];
   const hasBaseUrl = !!providerConfig?.baseUrl;
   const needsRemoteConfig = selectedProviderId === 'mineru';
+  const readOnly = !canEditProviderSettings;
 
   // Reset state when provider changes
   const [prevSelectedProviderId, setPrevSelectedProviderId] = useState(selectedProviderId);
@@ -63,13 +68,14 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
     setTestMessage('');
 
     try {
+      const overrides = getSanitizedClientOverride(providerConfig);
       const response = await fetch('/api/verify-pdf-provider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           providerId: selectedProviderId,
-          apiKey: providerConfig?.apiKey || '',
-          baseUrl,
+          apiKey: overrides.apiKey,
+          baseUrl: overrides.baseUrl || baseUrl,
         }),
       });
 
@@ -116,24 +122,27 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
                   onChange={(e) =>
                     setPDFProviderConfig(selectedProviderId, { baseUrl: e.target.value })
                   }
+                  disabled={readOnly}
                   className="text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTestConnection}
-                  disabled={testStatus === 'testing' || !hasBaseUrl}
-                  className="gap-1.5 shrink-0"
-                >
-                  {testStatus === 'testing' ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <>
-                      <Zap className="h-3.5 w-3.5" />
-                      {t('settings.testConnection')}
-                    </>
-                  )}
-                </Button>
+                {!readOnly && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTestConnection}
+                    disabled={testStatus === 'testing' || !hasBaseUrl}
+                    className="gap-1.5 shrink-0"
+                  >
+                    {testStatus === 'testing' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <Zap className="h-3.5 w-3.5" />
+                        {t('settings.testConnection')}
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -161,15 +170,18 @@ export function PDFSettings({ selectedProviderId }: PDFSettingsProps) {
                       apiKey: e.target.value,
                     })
                   }
+                  disabled={readOnly}
                   className="font-mono text-sm pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
           </div>

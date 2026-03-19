@@ -18,7 +18,7 @@ import {
   cleanupOldImages,
   storeImages,
 } from '@/lib/utils/image-storage';
-import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { getCurrentModelConfig, getSanitizedClientOverride } from '@/lib/utils/model-config';
 import { db } from '@/lib/utils/database';
 import { MAX_PDF_CONTENT_CHARS, MAX_VISION_IMAGES } from '@/lib/constants/generation';
 import { nanoid } from 'nanoid';
@@ -92,8 +92,12 @@ function GenerationPreviewContent() {
   const getApiHeaders = () => {
     const modelConfig = getCurrentModelConfig();
     const settings = useSettingsStore.getState();
-    const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
-    const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
+    const imageOverrides = getSanitizedClientOverride(
+      settings.imageProvidersConfig?.[settings.imageProviderId],
+    );
+    const videoOverrides = getSanitizedClientOverride(
+      settings.videoProvidersConfig?.[settings.videoProviderId],
+    );
     return {
       'Content-Type': 'application/json',
       'x-model': modelConfig.modelString,
@@ -104,13 +108,13 @@ function GenerationPreviewContent() {
       // Image generation provider
       'x-image-provider': settings.imageProviderId || '',
       'x-image-model': settings.imageModelId || '',
-      'x-image-api-key': imageProviderConfig?.apiKey || '',
-      'x-image-base-url': imageProviderConfig?.baseUrl || '',
+      'x-image-api-key': imageOverrides.apiKey,
+      'x-image-base-url': imageOverrides.baseUrl,
       // Video generation provider
       'x-video-provider': settings.videoProviderId || '',
       'x-video-model': settings.videoModelId || '',
-      'x-video-api-key': videoProviderConfig?.apiKey || '',
-      'x-video-base-url': videoProviderConfig?.baseUrl || '',
+      'x-video-api-key': videoOverrides.apiKey,
+      'x-video-base-url': videoOverrides.baseUrl,
       // Media generation toggles
       'x-image-generation-enabled': String(settings.imageGenerationEnabled ?? false),
       'x-video-generation-enabled': String(settings.videoGenerationEnabled ?? false),
@@ -182,11 +186,17 @@ function GenerationPreviewContent() {
         if (currentSession.pdfProviderId) {
           parseFormData.append('providerId', currentSession.pdfProviderId);
         }
-        if (currentSession.pdfProviderConfig?.apiKey?.trim()) {
-          parseFormData.append('apiKey', currentSession.pdfProviderConfig.apiKey);
+        const previewSettings = useSettingsStore.getState();
+        const pdfOverrides = getSanitizedClientOverride(
+          currentSession.pdfProviderId
+            ? previewSettings.pdfProvidersConfig?.[currentSession.pdfProviderId]
+            : undefined,
+        );
+        if (pdfOverrides.apiKey.trim()) {
+          parseFormData.append('apiKey', pdfOverrides.apiKey);
         }
-        if (currentSession.pdfProviderConfig?.baseUrl?.trim()) {
-          parseFormData.append('baseUrl', currentSession.pdfProviderConfig.baseUrl);
+        if (pdfOverrides.baseUrl.trim()) {
+          parseFormData.append('baseUrl', pdfOverrides.baseUrl);
         }
 
         const parseResponse = await fetch('/api/parse-pdf', {
@@ -304,14 +314,15 @@ function GenerationPreviewContent() {
         setWebSearchSources([]);
 
         const wsSettings = useSettingsStore.getState();
-        const wsApiKey =
-          wsSettings.webSearchProvidersConfig?.[wsSettings.webSearchProviderId]?.apiKey;
+        const wsOverrides = getSanitizedClientOverride(
+          wsSettings.webSearchProvidersConfig?.[wsSettings.webSearchProviderId],
+        );
         const res = await fetch('/api/web-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: currentSession.requirements.requirement,
-            apiKey: wsApiKey || undefined,
+            apiKey: wsOverrides.apiKey || undefined,
           }),
           signal,
         });
@@ -649,7 +660,9 @@ function GenerationPreviewContent() {
 
       // Generate TTS for first scene (part of actions step — blocking)
       if (settings.ttsEnabled && settings.ttsProviderId !== 'browser-native-tts') {
-        const ttsProviderConfig = settings.ttsProvidersConfig?.[settings.ttsProviderId];
+        const ttsOverrides = getSanitizedClientOverride(
+          settings.ttsProvidersConfig?.[settings.ttsProviderId],
+        );
         const speechActions = (data.scene.actions || []).filter(
           (a: { type: string; text?: string }) => a.type === 'speech' && a.text,
         );
@@ -668,8 +681,8 @@ function GenerationPreviewContent() {
                 ttsProviderId: settings.ttsProviderId,
                 ttsVoice: settings.ttsVoice,
                 ttsSpeed: settings.ttsSpeed,
-                ttsApiKey: ttsProviderConfig?.apiKey || undefined,
-                ttsBaseUrl: ttsProviderConfig?.baseUrl || undefined,
+                ttsApiKey: ttsOverrides.apiKey || undefined,
+                ttsBaseUrl: ttsOverrides.baseUrl || undefined,
               }),
               signal,
             });

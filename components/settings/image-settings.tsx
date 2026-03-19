@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ImageProviderId } from '@/lib/media/types';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 interface ImageSettingsProps {
   selectedProviderId: ImageProviderId;
@@ -33,6 +34,9 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
   const imageProvidersConfig = useSettingsStore((state) => state.imageProvidersConfig);
   const _setImageModelId = useSettingsStore((state) => state.setImageModelId);
   const setImageProviderConfig = useSettingsStore((state) => state.setImageProviderConfig);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -60,6 +64,7 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
     [currentConfig?.customModels],
   );
   const isServerConfigured = !!currentConfig?.isServerConfigured;
+  const readOnly = !canEditProviderSettings;
 
   const handleApiKeyChange = (apiKey: string) => {
     setImageProviderConfig(selectedProviderId, { apiKey });
@@ -74,13 +79,14 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
     setTestStatus('idle');
     setTestMessage('');
     try {
+      const overrides = getSanitizedClientOverride(currentConfig);
       const response = await fetch('/api/verify-image-provider', {
         method: 'POST',
         headers: {
           'x-image-provider': selectedProviderId,
           'x-image-model': imageModelId || '',
-          'x-api-key': currentConfig?.apiKey || '',
-          'x-base-url': currentConfig?.baseUrl || '',
+          'x-api-key': overrides.apiKey,
+          'x-base-url': overrides.baseUrl,
         },
       });
       const data = await response.json();
@@ -165,32 +171,37 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
               }
               value={currentConfig?.apiKey || ''}
               onChange={(e) => handleApiKeyChange(e.target.value)}
+              disabled={readOnly}
               className="h-8 pr-8"
             />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTest}
-            disabled={testLoading || (!currentConfig?.apiKey && !isServerConfigured)}
-            className="gap-1.5"
-          >
-            {testLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <>
-                <Zap className="h-3.5 w-3.5" />
-                {t('settings.testConnection')}
-              </>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             )}
-          </Button>
+          </div>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTest}
+              disabled={testLoading || (!currentConfig?.apiKey && !isServerConfigured)}
+              className="gap-1.5"
+            >
+              {testLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <>
+                  <Zap className="h-3.5 w-3.5" />
+                  {t('settings.testConnection')}
+                </>
+              )}
+            </Button>
+          )}
         </div>
         {testMessage && (
           <div
@@ -223,6 +234,7 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
           spellCheck={false}
           value={currentConfig?.baseUrl || ''}
           onChange={(e) => handleBaseUrlChange(e.target.value)}
+          disabled={readOnly}
           placeholder={
             currentConfig?.serverBaseUrl ||
             currentProvider?.defaultBaseUrl ||
@@ -249,10 +261,12 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Label className="text-base">{t('settings.models')}</Label>
-          <Button variant="outline" size="sm" onClick={handleOpenAddModel} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            {t('settings.addNewModel')}
-          </Button>
+          {!readOnly && (
+            <Button variant="outline" size="sm" onClick={handleOpenAddModel} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              {t('settings.addNewModel')}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -279,33 +293,35 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
                 <div className="font-mono text-sm font-medium">{model.name}</div>
                 <div className="text-xs text-muted-foreground font-mono mt-0.5">{model.id}</div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => handleOpenEditModel(index)}
-                  title={t('settings.editModel')}
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDeleteModel(index)}
-                  title={t('settings.deleteModel')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => handleOpenEditModel(index)}
+                    title={t('settings.editModel')}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteModel(index)}
+                    title={t('settings.deleteModel')}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
       </div>
 
       {/* Add/Edit Model Dialog */}
-      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
+      <Dialog open={!readOnly && showModelDialog} onOpenChange={setShowModelDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle>
             {editingModelIndex !== null ? t('settings.editModel') : t('settings.addNewModel')}
@@ -321,6 +337,7 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
                 onChange={(e) => setModelForm((prev) => ({ ...prev, id: e.target.value }))}
                 placeholder="e.g. my-custom-model-v1"
                 className="h-8 font-mono text-sm"
+                disabled={readOnly}
               />
             </div>
             <div className="space-y-2">
@@ -330,13 +347,14 @@ export function ImageSettings({ selectedProviderId }: ImageSettingsProps) {
                 onChange={(e) => setModelForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g. My Custom Model"
                 className="h-8 text-sm"
+                disabled={readOnly}
               />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowModelDialog(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button size="sm" onClick={handleSaveModel} disabled={!modelForm.id.trim()}>
+              <Button size="sm" onClick={handleSaveModel} disabled={readOnly || !modelForm.id.trim()}>
                 {t('common.save')}
               </Button>
             </div>

@@ -11,6 +11,7 @@ import type { ASRProviderId } from '@/lib/audio/types';
 import { Mic, MicOff, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 const log = createLogger('ASRSettings');
 
@@ -24,9 +25,13 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
   const asrLanguage = useSettingsStore((state) => state.asrLanguage);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
   const setASRProviderConfig = useSettingsStore((state) => state.setASRProviderConfig);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   const asrProvider = ASR_PROVIDERS[selectedProviderId] ?? ASR_PROVIDERS['openai-whisper'];
   const isServerConfigured = !!asrProvidersConfig[selectedProviderId]?.isServerConfigured;
+  const readOnly = !canEditProviderSettings;
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -105,10 +110,9 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
             formData.append('audio', audioBlob, 'recording.webm');
             formData.append('providerId', selectedProviderId);
             formData.append('language', asrLanguage);
-            const apiKeyValue = asrProvidersConfig[selectedProviderId]?.apiKey;
-            if (apiKeyValue?.trim()) formData.append('apiKey', apiKeyValue);
-            const baseUrlValue = asrProvidersConfig[selectedProviderId]?.baseUrl;
-            if (baseUrlValue?.trim()) formData.append('baseUrl', baseUrlValue);
+            const overrides = getSanitizedClientOverride(asrProvidersConfig[selectedProviderId]);
+            if (overrides.apiKey.trim()) formData.append('apiKey', overrides.apiKey);
+            if (overrides.baseUrl.trim()) formData.append('baseUrl', overrides.baseUrl);
 
             try {
               const response = await fetch('/api/transcription', {
@@ -176,15 +180,18 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                       apiKey: e.target.value,
                     })
                   }
+                  disabled={readOnly}
                   className="font-mono text-sm pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -202,6 +209,7 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
                     baseUrl: e.target.value,
                   })
                 }
+                disabled={readOnly}
                 className="text-sm"
               />
             </div>
@@ -243,9 +251,10 @@ export function ASRSettings({ selectedProviderId }: ASRSettingsProps) {
           <Button
             onClick={handleToggleASRRecording}
             disabled={
-              asrProvider.requiresApiKey &&
-              !asrProvidersConfig[selectedProviderId]?.apiKey?.trim() &&
-              !isServerConfigured
+              readOnly ||
+              (asrProvider.requiresApiKey &&
+                !asrProvidersConfig[selectedProviderId]?.apiKey?.trim() &&
+                !isServerConfigured)
             }
             className="gap-2 w-[140px]"
           >

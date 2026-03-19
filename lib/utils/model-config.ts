@@ -1,10 +1,16 @@
 import { useSettingsStore } from '@/lib/store/settings';
+import { sanitizeClientSecretValue } from '@/lib/provider-security';
+
+type ClientOverrideConfig = {
+  apiKey?: string;
+  baseUrl?: string;
+};
 
 /**
  * Get current model configuration from settings store
  */
 export function getCurrentModelConfig() {
-  const { providerId, modelId, providersConfig } = useSettingsStore.getState();
+  const { providerId, modelId, providersConfig, providerCapabilities } = useSettingsStore.getState();
   const modelString = `${providerId}:${modelId}`;
 
   // Get current provider's config
@@ -14,10 +20,19 @@ export function getCurrentModelConfig() {
     providerId,
     modelId,
     modelString,
-    apiKey: providerConfig?.apiKey || '',
-    baseUrl: providerConfig?.baseUrl || '',
+    apiKey: sanitizeClientSecretValue(providerConfig?.apiKey, providerCapabilities),
+    baseUrl: providerCapabilities.allowClientBaseUrl ? providerConfig?.baseUrl || '' : '',
     providerType: providerConfig?.type,
     requiresApiKey: providerConfig?.requiresApiKey,
     isServerConfigured: providerConfig?.isServerConfigured,
+  };
+}
+
+export function getSanitizedClientOverride(config?: ClientOverrideConfig) {
+  const { providerCapabilities } = useSettingsStore.getState();
+
+  return {
+    apiKey: sanitizeClientSecretValue(config?.apiKey, providerCapabilities),
+    baseUrl: providerCapabilities.allowClientBaseUrl ? config?.baseUrl || '' : '',
   };
 }

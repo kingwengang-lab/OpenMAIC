@@ -187,6 +187,9 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const asrProviderId = useSettingsStore((state) => state.asrProviderId);
   const asrProvidersConfig = useSettingsStore((state) => state.asrProvidersConfig);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   // Store actions
   const setModel = useSettingsStore((state) => state.setModel);
@@ -778,6 +781,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
                 selectedProviderId={selectedProviderId}
                 onSelect={handleProviderSelect}
                 onAddProvider={() => setShowAddProviderDialog(true)}
+                allowAddProvider={canEditProviderSettings}
                 width={providerListWidth}
               />
               <div
@@ -924,8 +928,9 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b">
               <div className="flex items-center gap-3">{getHeaderContent()}</div>
-              <div className="flex items-center gap-2">
-                {activeSection === 'providers' &&
+                <div className="flex items-center gap-2">
+                {canEditProviderSettings &&
+                  activeSection === 'providers' &&
                   !providersConfig[selectedProviderId]?.isBuiltIn && (
                     <Button
                       variant="ghost"
@@ -1009,26 +1014,30 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
       </DialogContent>
 
       {/* Edit Model Dialog */}
-      <ModelEditDialog
-        open={showModelDialog}
-        onOpenChange={setShowModelDialog}
-        editingModel={editingModel}
-        setEditingModel={setEditingModel}
-        onSave={handleSaveModel}
-        onAutoSave={handleAutoSaveModel}
-        providerId={selectedProviderId}
-        apiKey={providersConfig[selectedProviderId]?.apiKey || ''}
-        baseUrl={providersConfig[selectedProviderId]?.baseUrl}
-        providerType={providersConfig[selectedProviderId]?.type}
-        requiresApiKey={providersConfig[selectedProviderId]?.requiresApiKey}
-      />
+      {canEditProviderSettings && (
+        <ModelEditDialog
+          open={showModelDialog}
+          onOpenChange={setShowModelDialog}
+          editingModel={editingModel}
+          setEditingModel={setEditingModel}
+          onSave={handleSaveModel}
+          onAutoSave={handleAutoSaveModel}
+          providerId={selectedProviderId}
+          apiKey={providersConfig[selectedProviderId]?.apiKey || ''}
+          baseUrl={providersConfig[selectedProviderId]?.baseUrl}
+          providerType={providersConfig[selectedProviderId]?.type}
+          requiresApiKey={providersConfig[selectedProviderId]?.requiresApiKey}
+        />
+      )}
 
       {/* Add Provider Dialog */}
-      <AddProviderDialog
-        open={showAddProviderDialog}
-        onOpenChange={setShowAddProviderDialog}
-        onAdd={handleAddProvider}
-      />
+      {canEditProviderSettings && (
+        <AddProviderDialog
+          open={showAddProviderDialog}
+          onOpenChange={setShowAddProviderDialog}
+          onAdd={handleAddProvider}
+        />
+      )}
 
       {/* Delete Provider Confirmation */}
       <AlertDialog
