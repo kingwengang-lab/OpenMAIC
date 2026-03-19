@@ -22,6 +22,7 @@ import type { ImageProviderId, ImageGenerationOptions } from '@/lib/media/types'
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 
 const log = createLogger('ImageGeneration API');
 
@@ -39,6 +40,14 @@ export async function POST(request: NextRequest) {
     const clientApiKey = request.headers.get('x-api-key') || undefined;
     const clientBaseUrl = request.headers.get('x-base-url') || undefined;
     const clientModel = request.headers.get('x-image-model') || undefined;
+
+    const overrideError = rejectClientSecretOverride({
+      apiKey: clientApiKey,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
 
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);

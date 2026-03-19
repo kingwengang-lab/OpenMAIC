@@ -1,5 +1,6 @@
 import { ScanLine, Search, Bot, FileText, LayoutPanelLeft, Clapperboard } from 'lucide-react';
 import { useSettingsStore } from '@/lib/store/settings';
+import type { PDFProviderId } from '@/lib/pdf/types';
 import type {
   SceneOutline,
   UserRequirements,
@@ -20,8 +21,7 @@ export interface GenerationSessionState {
   // PDF deferred parsing fields
   pdfStorageKey?: string;
   pdfFileName?: string;
-  pdfProviderId?: string;
-  pdfProviderConfig?: { apiKey?: string; baseUrl?: string };
+  pdfProviderId?: PDFProviderId;
   // Web search context
   researchContext?: string;
   researchSources?: Array<{ title: string; url: string }>;

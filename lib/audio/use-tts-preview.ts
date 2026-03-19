@@ -6,6 +6,7 @@ import {
   isBrowserTTSAbortError,
   playBrowserTTSPreview,
 } from '@/lib/audio/browser-tts-preview';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 export interface TTSPreviewOptions {
   text: string;
@@ -98,8 +99,9 @@ export function useTTSPreview() {
           ttsVoice: options.voice,
           ttsSpeed: options.speed,
         };
-        if (options.apiKey?.trim()) body.ttsApiKey = options.apiKey;
-        if (options.baseUrl?.trim()) body.ttsBaseUrl = options.baseUrl;
+        const overrides = getSanitizedClientOverride(options);
+        if (overrides.apiKey.trim()) body.ttsApiKey = overrides.apiKey;
+        if (overrides.baseUrl.trim()) body.ttsBaseUrl = overrides.baseUrl;
 
         const res = await fetch('/api/generate/tts', {
           method: 'POST',

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { createLogger } from '@/lib/logger';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 const log = createLogger('AudioRecorder');
 
@@ -50,12 +51,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
           formData.append('language', asrLanguage);
 
           // Append API key and base URL if configured
-          const providerConfig = asrProvidersConfig?.[asrProviderId];
-          if (providerConfig?.apiKey?.trim()) {
-            formData.append('apiKey', providerConfig.apiKey);
+          const overrides = getSanitizedClientOverride(asrProvidersConfig?.[asrProviderId]);
+          if (overrides.apiKey.trim()) {
+            formData.append('apiKey', overrides.apiKey);
           }
-          if (providerConfig?.baseUrl?.trim()) {
-            formData.append('baseUrl', providerConfig.baseUrl);
+          if (overrides.baseUrl.trim()) {
+            formData.append('baseUrl', overrides.baseUrl);
           }
         }
 

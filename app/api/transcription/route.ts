@@ -5,6 +5,7 @@ import type { ASRProviderId } from '@/lib/audio/types';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 const log = createLogger('Transcription');
 
 export const maxDuration = 60;
@@ -26,6 +27,13 @@ export async function POST(req: NextRequest) {
     const effectiveProviderId = providerId || ('openai-whisper' as ASRProviderId);
 
     const clientBaseUrl = baseUrl || undefined;
+    const overrideError = rejectClientSecretOverride({
+      apiKey,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {

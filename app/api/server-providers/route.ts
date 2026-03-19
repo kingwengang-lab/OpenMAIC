@@ -9,6 +9,7 @@ import {
 } from '@/lib/server/provider-config';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
+import { getServerProviderCapabilities } from '@/lib/server/provider-security';
 
 const log = createLogger('ServerProviders');
 
@@ -22,6 +23,7 @@ export async function GET() {
       image: getServerImageProviders(),
       video: getServerVideoProviders(),
       webSearch: getServerWebSearchProviders(),
+      capabilities: getServerProviderCapabilities(),
     });
   } catch (error) {
     log.error('Error fetching server providers:', error);

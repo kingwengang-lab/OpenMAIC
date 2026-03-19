@@ -6,6 +6,7 @@ import type { ParsedPdfContent } from '@/lib/types/pdf';
 import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
+import { rejectClientSecretOverride } from '@/lib/server/provider-security';
 const log = createLogger('Parse PDF');
 
 export async function POST(req: NextRequest) {
@@ -34,6 +35,13 @@ export async function POST(req: NextRequest) {
     const effectiveProviderId = providerId || ('unpdf' as PDFProviderId);
 
     const clientBaseUrl = baseUrl || undefined;
+    const overrideError = rejectClientSecretOverride({
+      apiKey,
+      baseUrl: clientBaseUrl,
+    });
+    if (overrideError) {
+      return overrideError;
+    }
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {

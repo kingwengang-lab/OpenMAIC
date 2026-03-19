@@ -12,6 +12,7 @@ import { Volume2, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 import { useTTSPreview } from '@/lib/audio/use-tts-preview';
+import { getSanitizedClientOverride } from '@/lib/utils/model-config';
 
 const log = createLogger('TTSSettings');
 
@@ -27,6 +28,9 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
   const ttsProvidersConfig = useSettingsStore((state) => state.ttsProvidersConfig);
   const setTTSProviderConfig = useSettingsStore((state) => state.setTTSProviderConfig);
   const activeProviderId = useSettingsStore((state) => state.ttsProviderId);
+  const canEditProviderSettings = useSettingsStore(
+    (state) => state.providerCapabilities.allowProviderEditing,
+  );
 
   // When testing a non-active provider, use that provider's default voice
   // instead of the active provider's voice (which may be incompatible)
@@ -37,6 +41,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
 
   const ttsProvider = TTS_PROVIDERS[selectedProviderId] ?? TTS_PROVIDERS['openai-tts'];
   const isServerConfigured = !!ttsProvidersConfig[selectedProviderId]?.isServerConfigured;
+  const readOnly = !canEditProviderSettings;
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [testText, setTestText] = useState(t('settings.ttsTestTextDefault'));
@@ -64,13 +69,14 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
     setTestMessage('');
 
     try {
+      const overrides = getSanitizedClientOverride(ttsProvidersConfig[selectedProviderId]);
       await startPreview({
         text: testText,
         providerId: selectedProviderId,
         voice: effectiveVoice,
         speed: ttsSpeed,
-        apiKey: ttsProvidersConfig[selectedProviderId]?.apiKey,
-        baseUrl: ttsProvidersConfig[selectedProviderId]?.baseUrl,
+        apiKey: overrides.apiKey,
+        baseUrl: overrides.baseUrl,
       });
       setTestStatus('success');
       setTestMessage(t('settings.ttsTestSuccess'));
@@ -117,15 +123,18 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                       apiKey: e.target.value,
                     })
                   }
+                  disabled={readOnly}
                   className="font-mono text-sm pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -143,6 +152,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
                     baseUrl: e.target.value,
                   })
                 }
+                disabled={readOnly}
                 className="text-sm"
               />
             </div>
@@ -190,6 +200,7 @@ export function TTSSettings({ selectedProviderId }: TTSSettingsProps) {
             disabled={
               testingTTS ||
               !testText.trim() ||
+              readOnly ||
               (ttsProvider.requiresApiKey &&
                 !ttsProvidersConfig[selectedProviderId]?.apiKey?.trim() &&
                 !isServerConfigured)
