@@ -15,13 +15,14 @@
 import { NextRequest } from 'next/server';
 import { statelessGenerate } from '@/lib/orchestration/stateless-generate';
 import { getModel, parseModelString } from '@/lib/ai/providers';
-import { resolveApiKey, resolveBaseUrl, resolveProxy } from '@/lib/server/provider-config';
 import type { StatelessChatRequest, StatelessEvent } from '@/lib/types/chat';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
+import { resolveApiKey, resolveBaseUrl, resolveProxy } from '@/lib/server/provider-config';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { rejectClientSecretOverride } from '@/lib/server/provider-security';
+
 const log = createLogger('Chat API');
 
 // Allow streaming responses up to 60 seconds
@@ -62,10 +63,6 @@ export async function POST(req: NextRequest) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing required field: config.agentIds');
     }
 
-    // Resolve API key: client > server > empty
-    const modelString = body.model || 'gpt-4o-mini';
-    const { providerId, modelId } = parseModelString(modelString);
-
     const clientBaseUrl = body.baseUrl || undefined;
     const overrideError = rejectClientSecretOverride({
       apiKey: body.apiKey,
@@ -74,6 +71,7 @@ export async function POST(req: NextRequest) {
     if (overrideError) {
       return overrideError;
     }
+
     if (clientBaseUrl && process.env.NODE_ENV === 'production') {
       const ssrfError = validateUrlForSSRF(clientBaseUrl);
       if (ssrfError) {
@@ -81,15 +79,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const effectiveApiKey = clientBaseUrl
-      ? body.apiKey || ''
-      : resolveApiKey(providerId, body.apiKey);
-    const effectiveBaseUrl = clientBaseUrl
-      ? clientBaseUrl
-      : resolveBaseUrl(providerId, body.baseUrl);
+    const modelString = body.model || process.env.DEFAULT_MODEL || 'gpt-4o-mini';
+    const { providerId, modelId } = parseModelString(modelString);
+    const effectiveApiKey = resolveApiKey(providerId, body.apiKey);
+    const effectiveBaseUrl = resolveBaseUrl(providerId, body.baseUrl);
     const proxy = resolveProxy(providerId);
 
-    if (!effectiveApiKey) {
+    if (body.requiresApiKey !== false && !effectiveApiKey) {
       return apiError('MISSING_API_KEY', 401, 'API Key is required');
     }
 
@@ -98,13 +94,14 @@ export async function POST(req: NextRequest) {
       `Agents: ${body.config.agentIds.join(', ')}, Messages: ${body.messages.length}, Turn: ${body.directorState?.turnCount ?? 0}`,
     );
 
-    // Create LanguageModel via the unified provider system
     const { model: languageModel } = getModel({
       providerId,
       modelId,
       apiKey: effectiveApiKey,
       baseUrl: effectiveBaseUrl,
       proxy,
+      providerType: body.providerType as 'openai' | 'anthropic' | 'google' | undefined,
+      requiresApiKey: body.requiresApiKey,
     });
 
     // Use the native request signal for abort propagation
